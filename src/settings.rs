@@ -44,6 +44,7 @@ pub enum Embedder {
     /// You may be able to significantly improve performance by [compiling a CUDA-compatible Meilisearch binary](https://www.meilisearch.com/docs/guides/ai/computing_hugging_face_embeddings_gpu).
     /// This is a resource-intensive operation and might affect indexing performance negatively.
     HuggingFace(HuggingFaceEmbedderSettings),
+    #[serde(rename = "openAi")]
     /// Use OpenAI's API to generate embeddings
     /// Depending on hardware, this is a
     OpenAI(OpenAIEmbedderSettings),
