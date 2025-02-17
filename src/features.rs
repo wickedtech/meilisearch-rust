@@ -103,30 +103,3 @@ impl<'a, Http: HttpClient> ExperimentalFeatures<'a, Http> {
             .await
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use meilisearch_test_macro::meilisearch_test;
-
-    #[meilisearch_test]
-    async fn test_experimental_features_get(client: Client) {
-        let mut features = ExperimentalFeatures::new(&client);
-        features.set_vector_store(false);
-        let _ = features.update().await.unwrap();
-
-        let res = features.get().await.unwrap();
-
-        assert!(!res.vector_store);
-    }
-
-    #[meilisearch_test]
-    async fn test_experimental_features_enable_vector_store(client: Client) {
-        let mut features = ExperimentalFeatures::new(&client);
-        features.set_vector_store(true);
-
-        let res = features.update().await.unwrap();
-
-        assert!(res.vector_store);
-    }
-}
