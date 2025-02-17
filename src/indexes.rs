@@ -238,6 +238,20 @@ impl<Http: HttpClient> Index<Http> {
             .await
     }
 
+    pub async fn execute_similar<T: 'static + DeserializeOwned + Send + Sync>(
+        &self,
+        similar: &SimilarQuery<'_, Http>,
+    ) -> Result<SimilarResults<T>, Error> {
+        self.client
+            .http_client
+            .request::<&SimilarQuery<Http>, (), SimilarResults<T>>(
+                &format!("{}/indexes/{}/similar", self.client.host, self.uid),
+                Method::Get { query: similar },
+                200,
+            )
+            .await
+    }
+
     /// Search for documents matching a specific query in the index.
     ///
     /// See also [`Index::execute_query`].
@@ -277,6 +291,11 @@ impl<Http: HttpClient> Index<Http> {
     #[must_use]
     pub fn search(&self) -> SearchQuery<Http> {
         SearchQuery::new(self)
+    }
+
+    #[must_use]
+    pub fn similar<'a>(&'a self, id: &'a str) -> SimilarQuery<'a, Http> {
+        SimilarQuery::new(self, id)
     }
 
     /// Get one document using its unique id.

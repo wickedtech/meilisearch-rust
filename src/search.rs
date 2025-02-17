@@ -78,6 +78,36 @@ pub struct FacetStats {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 /// A struct containing search results and other information about the search.
+pub struct SimilarResults<T> {
+    /// Results of the query.
+    pub hits: Vec<SearchResult<T>>,
+    /// Number of documents skipped.
+    pub offset: Option<usize>,
+    /// Number of results returned.
+    pub limit: Option<usize>,
+    /// Estimated total number of matches.
+    pub estimated_total_hits: Option<usize>,
+    /// Current page number
+    pub page: Option<usize>,
+    /// Maximum number of hits in a page.
+    pub hits_per_page: Option<usize>,
+    /// Exhaustive number of matches.
+    pub total_hits: Option<usize>,
+    /// Exhaustive number of pages.
+    pub total_pages: Option<usize>,
+    /// Distribution of the given facets.
+    pub facet_distribution: Option<HashMap<String, HashMap<String, usize>>>,
+    /// facet stats of the numerical facets requested in the `facet` search parameter.
+    pub facet_stats: Option<HashMap<String, FacetStats>>,
+    /// Processing time of the query.
+    pub processing_time_ms: usize,
+    /// Index uid on which the search was made.
+    pub index_uid: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+/// A struct containing search results and other information about the search.
 pub struct SearchResults<T> {
     /// Results of the query.
     pub hits: Vec<SearchResult<T>>,
@@ -178,6 +208,52 @@ pub enum Selectors<T> {
 }
 
 type AttributeToCrop<'a> = (&'a str, Option<usize>);
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SimilarQuery<'a, Http: HttpClient> {
+    #[serde(skip_serializing)]
+    index: &'a Index<Http>,
+    id: &'a str,
+    embedder: &'a str,
+    limit: usize,
+    offset: usize,
+}
+
+#[allow(missing_docs)]
+impl<'a, Http: HttpClient> SimilarQuery<'a, Http> {
+    #[must_use]
+    pub fn new(index: &'a Index<Http>, id: &'a str) -> SimilarQuery<'a, Http> {
+        SimilarQuery {
+            index,
+            id,
+            embedder: "default",
+            limit: 10,
+            offset: 0,
+        }
+    }
+
+    pub fn with_embedder<'b>(&'b mut self, embedder: &'a str) -> &'b mut SimilarQuery<'a, Http> {
+        self.embedder = embedder;
+        self
+    }
+
+    pub fn with_limit<'b>(&'b mut self, limit: usize) -> &'b mut SimilarQuery<'a, Http> {
+        self.limit = limit;
+        self
+    }
+
+    pub fn with_offset<'b>(&'b mut self, offset: usize) -> &'b mut SimilarQuery<'a, Http> {
+        self.offset = offset;
+        self
+    }
+
+    pub async fn execute<T: 'static + DeserializeOwned + Send + Sync>(
+        &'a self,
+    ) -> Result<SimilarResults<T>, Error> {
+        self.index.execute_similar::<T>(self).await
+    }
+}
 
 /// A struct representing a query.
 ///
@@ -1487,6 +1563,18 @@ mod tests {
             .await;
         mock_res.assert_async().await;
         results?; // purposely not done above to have better debugging output
+
+        Ok(())
+    }
+
+    #[meilisearch_test]
+    async fn test_similars(client: Client, index: Index) -> Result<(), Error> {
+        setup_hybrid_searching(&client, &index).await?;
+        setup_test_index(&client, &index).await?;
+
+        let results: SimilarResults<Document> = index.similar("0").with_limit(2).execute().await?;
+
+        assert_eq!(results.hits.len(), 2);
 
         Ok(())
     }
